@@ -1,0 +1,163 @@
+esphome:
+  name: stovectrl
+
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+  level: VERBOSE
+
+# Enable Home Assistant API
+api:
+
+ota:
+  platform: esphome
+
+web_server:
+  port: 80
+
+wifi:
+  ssid: "Mosh Potats"
+  password: "hippopotats123"
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO17   # Connect to DI of RS485 module
+  rx_pin: GPIO18   # Connect to RO of RS485 module
+  baud_rate: 9600
+  stop_bits: 1
+  parity: NONE
+
+modbus:
+  id: rs485_bus
+  uart_id: uart_bus
+
+modbus_controller:
+  - id: amidj14
+    address: 0x01       # Default slave ID (check/change via register 0x00FD if needed)
+    modbus_id: rs485_bus
+    update_interval: 10s
+    command_throttle: 100ms
+    max_cmd_retries: 0
+
+sensor:
+  # 6 analog inputs (0–20 mA, from holding registers 0x00A0–0x00A5)
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "AI1 Current"
+    address: 0x00A0
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "AI2 Current"
+    address: 0x00A1
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "AI3 Current"
+    address: 0x00A2
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "AI4 Current"
+    address: 0x00A3
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "AI5 Current"
+    address: 0x00A4
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "AI6 Current"
+    address: 0x00A5
+    register_type: holding
+    value_type: U_WORD
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  # Digital inputs (bitmask at 0x0090)
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "Digital Inputs Raw"
+    id: di_raw
+    address: 0x0090
+    register_type: holding
+    value_type: U_WORD
+
+binary_sensor:
+  - platform: template
+    name: "DI1"
+    lambda: |-
+      return (int(id(di_raw).state) & 0x01);
+  - platform: template
+    name: "DI2"
+    lambda: |-
+      return (int(id(di_raw).state) & 0x02);
+  - platform: template
+    name: "DI3"
+    lambda: |-
+      return (int(id(di_raw).state) & 0x04);
+  - platform: template
+    name: "DI4"
+    lambda: |-
+      return (int(id(di_raw).state) & 0x08);
+
+switch:
+  # Relays (DO, bitmask at 0x0080)
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "Relay 1"
+    address: 0x0080
+    register_type: holding
+    bitmask: 0x01
+
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "Relay 2"
+    address: 0x0080
+    register_type: holding
+    bitmask: 0x02
+
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "Relay 3"
+    address: 0x0080
+    register_type: holding
+    bitmask: 0x04
+
+  - platform: modbus_controller
+    modbus_controller_id: amidj14
+    name: "Relay 4"
+    address: 0x0080
+    register_type: holding
+    bitmask: 0x08
