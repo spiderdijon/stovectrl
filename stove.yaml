@@ -44,46 +44,90 @@ modbus_controller:
     max_cmd_retries: 0
 
 sensor:
-  # 6 analog inputs (0–20 mA, from holding registers 0x00A0–0x00A5)
+  # --- AI1 ---
   - platform: modbus_controller
     modbus_controller_id: amidj14
+    id: ai1_current
     name: "AI1 Current"
     address: 0x00A0
     register_type: holding
     value_type: U_WORD
+    unit_of_measurement: "mA"
     accuracy_decimals: 2
     filters:
       - multiply: 0.01
 
+  - platform: template
+    name: "AI1 Temperature"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    lambda: |-
+      if (id(ai1_current).state < 4.0) return NAN;
+      return (id(ai1_current).state - 4.0) * (100.0 / 16.0);
+
+  # --- AI2 ---
   - platform: modbus_controller
     modbus_controller_id: amidj14
+    id: ai2_current
     name: "AI2 Current"
     address: 0x00A1
     register_type: holding
     value_type: U_WORD
+    unit_of_measurement: "mA"
     accuracy_decimals: 2
     filters:
       - multiply: 0.01
 
+  - platform: template
+    name: "AI2 Temperature"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    lambda: |-
+      if (id(ai2_current).state < 4.0) return NAN;
+      return (id(ai2_current).state - 4.0) * (100.0 / 16.0);
+
+  # --- AI3 ---
   - platform: modbus_controller
     modbus_controller_id: amidj14
+    id: ai3_current
     name: "AI3 Current"
     address: 0x00A2
     register_type: holding
     value_type: U_WORD
+    unit_of_measurement: "mA"
     accuracy_decimals: 2
     filters:
       - multiply: 0.01
 
+  - platform: template
+    name: "AI3 Temperature"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    lambda: |-
+      if (id(ai3_current).state < 4.0) return NAN;
+      return (id(ai3_current).state - 4.0) * (100.0 / 16.0);
+
+  # --- AI4 (0–600 °C) ---
   - platform: modbus_controller
     modbus_controller_id: amidj14
+    id: ai4_current
     name: "AI4 Current"
     address: 0x00A3
     register_type: holding
     value_type: U_WORD
+    unit_of_measurement: "mA"
     accuracy_decimals: 2
     filters:
       - multiply: 0.01
+
+  - platform: template
+    name: "AI4 Temperature"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    lambda: |-
+      if (id(ai4_current).state < 4.0) return NAN;
+      return (id(ai4_current).state - 4.0) * (600.0 / 16.0);
+
 
   - platform: modbus_controller
     modbus_controller_id: amidj14
