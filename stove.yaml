@@ -34,13 +34,13 @@ uart:
 modbus:
   id: rs485_bus
   uart_id: uart_bus
+  flow_control_pin: 21
 
 modbus_controller:
   - id: amidj14
     address: 0x01       # Default slave ID (check/change via register 0x00FD if needed)
     modbus_id: rs485_bus
-    update_interval: 10s
-    command_throttle: 100ms
+    update_interval: 1s
     max_cmd_retries: 0
 
 sensor:
