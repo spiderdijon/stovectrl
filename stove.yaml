@@ -128,16 +128,30 @@ sensor:
       if (id(ai4_current).state < 4.0) return NAN;
       return (id(ai4_current).state - 4.0) * (600.0 / 16.0);
 
-
+  # --- AI5 (Flow rate in L/min from YF-B10) ---
   - platform: modbus_controller
     modbus_controller_id: amidj14
+    id: ai5_current
     name: "AI5 Current"
     address: 0x00A4
     register_type: holding
     value_type: U_WORD
+    unit_of_measurement: "mA"
     accuracy_decimals: 2
     filters:
       - multiply: 0.01
+
+  - platform: template
+    name: "AI5 Flow Rate"
+    unit_of_measurement: "L/min"
+    accuracy_decimals: 2
+    lambda: |-
+      if (id(ai5_current).state < 4.0) return 0;
+      // Convert 4-20mA → frequency (Hz)
+      float frequency = (id(ai5_current).state - 4.0) * (500.0 / 16.0);
+      // Convert frequency → flow rate: Q = (F + 8) / 6
+      return (frequency + 8.0) / 6.0;
+
 
   - platform: modbus_controller
     modbus_controller_id: amidj14
