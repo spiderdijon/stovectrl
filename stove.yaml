@@ -10,6 +10,10 @@ esp32:
 logger:
   level: VERBOSE
 
+mqtt:
+  id: mqtt_client
+  broker: 10.11.12.118   # replace with your MQTT broker IP
+
 # Enable Home Assistant API
 api:
 
@@ -58,7 +62,7 @@ sensor:
       - multiply: 0.01
 
   - platform: template
-    name: "AI1 Temperature"
+    name: "Stove Flow Temperature"
     unit_of_measurement: "°C"
     accuracy_decimals: 1
     lambda: |-
@@ -79,7 +83,7 @@ sensor:
       - multiply: 0.01
 
   - platform: template
-    name: "AI2 Temperature"
+    name: "Stove Return Temperature"
     unit_of_measurement: "°C"
     accuracy_decimals: 1
     lambda: |-
@@ -100,12 +104,23 @@ sensor:
       - multiply: 0.01
 
   - platform: template
-    name: "AI3 Temperature"
+    name: "Low Loss Header Temperature"
     unit_of_measurement: "°C"
     accuracy_decimals: 1
     lambda: |-
       if (id(ai3_current).state < 4.0) return NAN;
       return (id(ai3_current).state - 4.0) * (100.0 / 16.0);
+    on_value:
+      then:
+        - lambda: |-
+            static bool pump_on = false;
+            if (x > 50.0 && !pump_on) {
+              pump_on = true;
+              id(mqtt_client).publish("heating/pump/main", "ON");
+            } else if (x < 40.0 && pump_on) {   // small hysteresis
+              pump_on = false;
+              id(mqtt_client).publish("heating/pump/main", "OFF");
+            }
 
   # --- AI4 (0–600 °C) ---
   - platform: modbus_controller
@@ -121,7 +136,7 @@ sensor:
       - multiply: 0.01
 
   - platform: template
-    name: "AI4 Temperature"
+    name: "Flue Temperature"
     unit_of_measurement: "°C"
     accuracy_decimals: 1
     lambda: |-
@@ -142,7 +157,7 @@ sensor:
       - multiply: 0.01
 
   - platform: template
-    name: "AI5 Flow Rate"
+    name: "Stove Flow Rate"
     unit_of_measurement: "L/min"
     accuracy_decimals: 2
     lambda: |-
@@ -151,6 +166,32 @@ sensor:
       float frequency = (id(ai5_current).state - 4.0) * (500.0 / 16.0);
       // Convert frequency → flow rate: Q = (F + 8) / 6
       return (frequency + 8.0) / 6.0;
+
+  - platform: template
+    name: "Stove Power Output"
+    unit_of_measurement: "kW"
+    accuracy_decimals: 2
+    update_interval: 1s
+    lambda: |-
+      // Temperatures
+      float T1 = id(ai1_current).state < 4.0 ? NAN : (id(ai1_current).state - 4.0) * (100.0 / 16.0);
+      float T2 = id(ai2_current).state < 4.0 ? NAN : (id(ai2_current).state - 4.0) * (100.0 / 16.0);
+
+      // Flow in L/min
+      float Q  = 0.0;
+      if (id(ai5_current).state >= 4.0) {
+        float frequency = (id(ai5_current).state - 4.0) * (500.0 / 16.0);
+        Q = (frequency + 8.0) / 6.0; // L/min
+      }
+
+      // Validate inputs
+      if (isnan(T1) || isnan(T2) || Q <= 0) return NAN;
+
+      // ΔT
+      float dT = T1 - T2;
+
+      // Thermal power in kW
+      return (Q * 69.77 * dT) / 1000.0;
 
 
   - platform: modbus_controller
@@ -215,7 +256,22 @@ switch:
 
   - platform: modbus_controller
     modbus_controller_id: amidj14
-    name: "Relay 4"
+    id: relay_4
+    name: "Stove Pump"
     address: 0x0080
     register_type: holding
     bitmask: 0x08
+
+    # --- Automation: Control Relay 4 from AI4 Temperature ---
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          if (!isnan(id(ai4_current).state)) {
+            float T4 = (id(ai4_current).state - 4.0) * (600.0 / 16.0);  // AI4 Temperature
+            if (T4 > 100.0) {
+              id(relay_4).turn_on();
+            } else if (T4 < 90.0) {
+              id(relay_4).turn_off();
+            }
+          }
